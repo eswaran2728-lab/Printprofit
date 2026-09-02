@@ -99,6 +99,23 @@ add that same redirect URI to the OAuth client in Google Cloud Console.
 5. Generate a public domain, update `GOOGLE_REDIRECT_URI` to match it, and
    add that redirect URI in the Google Cloud OAuth client.
 
+## Screenshot sale scanning (optional)
+
+The Sales page has a "Scan order screenshot" button that uses Gemini to read
+an order screenshot (e.g. from TikTok Shop) and pre-fill the sale form
+(price, platform, date, matched product) for you to review before saving.
+
+To enable it:
+
+1. Go to https://aistudio.google.com/apikey (or Google Cloud Console → APIs &
+   Services → Credentials, in the same PrintProfit project) and create a
+   Gemini API key.
+2. Set `GEMINI_API_KEY` in `server/.env` (local) or as a Railway variable
+   (production).
+
+Without this key set, manual sale entry still works fine — the scan button
+will just show an error if tapped.
+
 ## Cost formulas
 
 - **Cost/gram** = Cost/kg ÷ 1000

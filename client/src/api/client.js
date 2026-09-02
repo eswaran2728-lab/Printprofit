@@ -55,6 +55,11 @@ export const salesApi = {
   create: (data) => api.post('/sales', data).then((r) => r.data),
   remove: (id) => api.delete(`/sales/${id}`).then((r) => r.data),
   syncSummary: () => api.post('/sales/sync-summary').then((r) => r.data),
+  extract: (file) => {
+    const form = new FormData();
+    form.append('image', file);
+    return api.post('/sales/extract', form).then((r) => r.data);
+  },
 };
 
 export const dashboardApi = {

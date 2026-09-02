@@ -9,6 +9,7 @@ export const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:4000/api/auth/google/callback',
   },
+  geminiApiKey: process.env.GEMINI_API_KEY,
   spreadsheetName: 'PrintProfit — Eshan Creations',
   electricityRatePerKwh: 0.571, // MYR, Malaysia domestic tariff default (editable in Printers screen calc if needed)
 };

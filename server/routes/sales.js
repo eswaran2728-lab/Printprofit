@@ -1,12 +1,15 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { nanoid } from 'nanoid';
 import { store } from '../utils/store.js';
 import { enqueueAppend, enqueueWrite } from '../services/syncQueue.js';
 import { computeProductCost } from '../utils/calc.js';
+import { extractSaleFromImage } from '../services/gemini.js';
 
 const router = Router();
 const SALES_TAB = 'Sales';
 const SUMMARY_TAB = 'Monthly Summary';
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 function getRefs() {
   return { materials: store.get('materials'), printers: store.get('printers'), labor: store.get('labor') };
@@ -70,6 +73,28 @@ router.delete('/:id', (req, res) => {
 router.post('/sync-summary', (req, res) => {
   const rows = recomputeMonthlySummary();
   res.json({ ok: true, rows });
+});
+
+router.post('/extract', upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+  try {
+    const extracted = await extractSaleFromImage(req.file.buffer.toString('base64'), req.file.mimetype);
+
+    const products = store.get('products');
+    let matchedProductId = null;
+    if (extracted.productName) {
+      const needle = extracted.productName.toLowerCase();
+      const match = products.find(
+        (p) => needle.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(needle)
+      );
+      matchedProductId = match?.id || null;
+    }
+
+    res.json({ ...extracted, matchedProductId });
+  } catch (err) {
+    console.error('Sale extraction failed:', err.message);
+    res.status(500).json({ error: err.message || 'Extraction failed' });
+  }
 });
 
 export default router;

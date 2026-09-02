@@ -10,6 +10,9 @@ export default function Sales() {
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(empty);
   const [syncing, setSyncing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const [scanHint, setScanHint] = useState('');
 
   const load = () => salesApi.list().then((data) => setSales([...data].reverse()));
 
@@ -40,6 +43,34 @@ export default function Sales() {
     setSyncing(false);
   };
 
+  const onScanFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setScanning(true);
+    setScanError('');
+    setScanHint('');
+    try {
+      const data = await salesApi.extract(file);
+      setForm((f) => ({
+        ...f,
+        date: data.date || f.date,
+        sellPrice: data.itemPrice ?? f.sellPrice,
+        buyerPlatform: data.platform || f.buyerPlatform,
+        productId: data.matchedProductId || f.productId,
+      }));
+      if (!data.matchedProductId && data.productName) {
+        setScanHint(`Detected "${data.productName}" — no matching product found, please select one manually.`);
+      } else if (data.matchedProductId) {
+        setScanHint(`Matched product from screenshot: "${data.productName}". Review before saving.`);
+      }
+    } catch (err) {
+      setScanError(err.response?.data?.error || 'Could not read that screenshot. Enter the sale manually.');
+    } finally {
+      setScanning(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-between items-center">
@@ -48,6 +79,15 @@ export default function Sales() {
           {syncing ? 'Syncing…' : 'Sync Summary Now'}
         </button>
       </div>
+
+      <Card>
+        <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg py-3 text-sm text-purple-600 cursor-pointer">
+          {scanning ? 'Reading screenshot…' : '📷 Scan order screenshot (auto-fill)'}
+          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onScanFile} disabled={scanning} />
+        </label>
+        {scanError && <p className="text-xs text-red-500 mt-2">{scanError}</p>}
+        {scanHint && <p className="text-xs text-amber-600 mt-2">{scanHint}</p>}
+      </Card>
 
       <Card>
         <form onSubmit={submit} className="grid grid-cols-2 gap-3">
