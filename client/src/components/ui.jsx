@@ -1,48 +1,77 @@
-export function Card({ children, className = '' }) {
-  return <div className={`bg-white rounded-xl shadow-sm border p-4 ${className}`}>{children}</div>;
+export function rm(n) {
+  const v = Number(n) || 0;
+  return 'RM ' + v.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function Stat({ label, value, tone = 'default' }) {
-  const colors = {
-    default: 'text-gray-800',
-    good: 'text-green-600',
-    bad: 'text-red-600',
-  };
+const ALL_CORNERS = ['tl', 'tr', 'bl', 'br'];
+
+export function Blueprint({ children, className = '', corners = ALL_CORNERS, cornerColor, ...props }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-3 flex flex-col gap-1">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-xl font-bold ${colors[tone]}`}>{value}</span>
+    <div className={`blueprint ${className}`} {...props}>
+      {corners.map((c) => (
+        <i key={c} className={`corner ${c}`} style={cornerColor ? { color: cornerColor } : undefined} />
+      ))}
+      {children}
     </div>
   );
 }
 
-export function Field({ label, children }) {
+export function Field({ label, children, className = '' }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-gray-600">{label}</span>
+    <label className={`field flex flex-col ${className}`}>
+      {label && <label>{label}</label>}
       {children}
     </label>
   );
 }
 
-export const inputCls =
-  'border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400';
+export const inputCls = 'input';
 
-export function Button({ children, variant = 'primary', className = '', ...props }) {
-  const base = 'rounded-lg px-4 py-2 text-sm font-medium transition';
+export function Button({ children, variant = 'primary', block = false, className = '', ...props }) {
   const variants = {
-    primary: 'bg-purple-600 text-white hover:bg-purple-700',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-    danger: 'bg-red-50 text-red-600 hover:bg-red-100',
+    primary: 'btn-primary',
+    secondary: 'btn-secondary',
+    ghost: 'btn-ghost',
+    danger: 'btn-danger',
   };
   return (
-    <button className={`${base} ${variants[variant]} ${className}`} {...props}>
+    <button className={`btn ${variants[variant]} ${block ? 'btn-block' : ''} ${className}`} {...props}>
       {children}
     </button>
   );
 }
 
-export function rm(n) {
-  const num = Number(n) || 0;
-  return `RM ${num.toFixed(2)}`;
+export function Tag({ children, tone = 'neutral', className = '' }) {
+  const tones = {
+    warn: 'tag-warn',
+    accent: 'tag-accent',
+    neutral: 'tag-neutral',
+  };
+  return <span className={`tag ${tones[tone]} ${className}`}>{children}</span>;
+}
+
+export function Seg({ options, value, onChange, name, className = '' }) {
+  return (
+    <div className={`seg ${className}`}>
+      {options.map((opt) => (
+        <label key={opt.value} className="seg-opt">
+          <input
+            type="radio"
+            name={name}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+          />
+          {opt.label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+export function profitClass(n) {
+  return Number(n) >= 0 ? 'text-success-700' : 'text-danger-700';
+}
+
+export function profitPlateClass(n) {
+  return Number(n) >= 0 ? 'text-[#9fd9ab]' : 'text-[#e79a8f]';
 }

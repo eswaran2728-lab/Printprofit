@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { salesApi, productsApi } from '../api/client';
-import { Card, Field, inputCls, Button, rm } from '../components/ui';
+import { Blueprint, Field, inputCls, Button, rm, profitClass } from '../components/ui';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const empty = { date: today(), productId: '', buyerPlatform: '', sellPrice: '' };
@@ -8,10 +8,11 @@ const empty = { date: today(), productId: '', buyerPlatform: '', sellPrice: '' }
 export default function Sales() {
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(empty);
   const [syncing, setSyncing] = useState(false);
 
-  const load = () => salesApi.list().then((data) => setSales([...data].reverse()));
+  const load = () => salesApi.list().then((data) => setSales([...data].sort((a, b) => (a.date < b.date ? 1 : -1))));
 
   useEffect(() => {
     load();
@@ -19,18 +20,22 @@ export default function Sales() {
   }, []);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
-  const estCost = selectedProduct?.cost.totalCost || 0;
-  const estProfit = (Number(form.sellPrice) || 0) - estCost;
+  const preview =
+    selectedProduct && form.sellPrice !== ''
+      ? (() => {
+          const cost = selectedProduct.cost.totalCost;
+          const sell = Number(form.sellPrice) || 0;
+          const profit = sell - cost;
+          const margin = sell > 0 ? (profit / sell) * 100 : 0;
+          return { cost, profit, margin };
+        })()
+      : null;
 
   const submit = async (e) => {
     e.preventDefault();
     await salesApi.create(form);
     setForm({ ...empty, date: today() });
-    load();
-  };
-
-  const remove = async (id) => {
-    await salesApi.remove(id);
+    setShowAdd(false);
     load();
   };
 
@@ -41,63 +46,100 @@ export default function Sales() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-gray-700">Sales Log</h2>
-        <button onClick={syncSummary} className="text-xs text-purple-600 underline" disabled={syncing}>
-          {syncing ? 'Syncing…' : 'Sync Summary Now'}
-        </button>
+    <div className="flex flex-col gap-3.5">
+      <div className="flex items-center justify-between">
+        <h2 className="m-0 text-[24px]">Sales Log</h2>
+        <div className="flex items-center gap-3">
+          <button onClick={syncSummary} disabled={syncing} className="btn-ghost text-[11px]">
+            {syncing ? 'Syncing…' : 'Sync summary'}
+          </button>
+          <Button onClick={() => setShowAdd(true)}>+ Sale</Button>
+        </div>
       </div>
 
-      <Card>
-        <form onSubmit={submit} className="grid grid-cols-2 gap-3">
-          <Field label="Date">
-            <input type="date" className={inputCls} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-          </Field>
+      {showAdd && (
+        <Blueprint className="p-3.5">
+        <form onSubmit={submit} className="flex flex-col gap-2.5">
+          <h6 className="m-0 text-accent-700">New sale</h6>
           <Field label="Product">
-            <select className={inputCls} required value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })}>
+            <select
+              className={inputCls}
+              required
+              value={form.productId}
+              onChange={(e) => setForm({ ...form, productId: e.target.value })}
+            >
               <option value="">Select product</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </Field>
-          <Field label="Buyer / Platform">
-            <input className={inputCls} placeholder="e.g. TikTok Shop" value={form.buyerPlatform} onChange={(e) => setForm({ ...form, buyerPlatform: e.target.value })} />
+          <div className="flex gap-2.5">
+            <Field label="Platform" className="flex-1">
+              <input
+                className={inputCls}
+                value={form.buyerPlatform}
+                onChange={(e) => setForm({ ...form, buyerPlatform: e.target.value })}
+                placeholder="Shopee / Direct"
+              />
+            </Field>
+            <Field label="Date" className="flex-1">
+              <input
+                type="date"
+                className={inputCls}
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
+            </Field>
+          </div>
+          <Field label="Sell price (RM)">
+            <input
+              type="number"
+              step="0.01"
+              className={inputCls}
+              required
+              value={form.sellPrice}
+              onChange={(e) => setForm({ ...form, sellPrice: e.target.value })}
+            />
           </Field>
-          <Field label="Sell Price (RM)">
-            <input type="number" step="0.01" className={inputCls} required value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} />
-          </Field>
-          {selectedProduct && (
-            <div className="col-span-2 text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
-              Cost: {rm(estCost)} · Est. Profit: <span className={estProfit >= 0 ? 'text-green-600' : 'text-red-500'}>{rm(estProfit)}</span>
+          {preview && (
+            <div className="flex gap-4 border-t border-divider pt-2">
+              <div>
+                <div className="text-[10px] uppercase text-muted">Cost</div>
+                <div className="pp-num text-[15px]">{rm(preview.cost)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted">Profit</div>
+                <div className={`pp-num text-[15px] ${profitClass(preview.profit)}`}>{rm(preview.profit)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted">Margin</div>
+                <div className="pp-num text-[15px]">{preview.margin.toFixed(1)}%</div>
+              </div>
             </div>
           )}
-          <div className="col-span-2">
-            <Button type="submit">Log Sale</Button>
+          <div className="mt-1 flex gap-2">
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button type="submit" className="flex-1">Save sale</Button>
           </div>
         </form>
-      </Card>
+        </Blueprint>
+      )}
 
       <div className="flex flex-col gap-2">
         {sales.map((s) => (
-          <Card key={s.id}>
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-medium text-gray-800">{s.productName}</p>
-                <p className="text-xs text-gray-500">{s.date} · {s.buyerPlatform}</p>
-                <p className="text-xs mt-1">
-                  Sell {rm(s.sellPrice)} · Cost {rm(s.totalCost)} ·{' '}
-                  <span className={s.profit >= 0 ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
-                    Profit {rm(s.profit)} ({s.margin.toFixed(1)}%)
-                  </span>
-                </p>
-              </div>
-              <button className="text-red-500 text-xs" onClick={() => remove(s.id)}>Delete</button>
+          <Blueprint key={s.id} corners={['tl', 'br']} className="flex items-center gap-3 px-3.5 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-medium">{s.productName}</div>
+              <div className="mt-0.5 text-[11px] text-muted">{s.date} · {s.buyerPlatform} · sold {rm(s.sellPrice)}</div>
             </div>
-          </Card>
+            <div className="flex-none text-right">
+              <div className={`pp-num text-[17px] ${profitClass(s.profit)}`}>{rm(s.profit)}</div>
+              <div className="text-[11px] text-muted">{s.margin.toFixed(1)}% margin</div>
+            </div>
+          </Blueprint>
         ))}
-        {sales.length === 0 && <p className="text-sm text-gray-400">No sales logged yet.</p>}
+        {sales.length === 0 && <p className="text-sm text-muted">No sales logged yet.</p>}
       </div>
     </div>
   );
