@@ -23,10 +23,24 @@ export async function extractSaleFromImage(base64Data, mimeType) {
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
   const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
-  const result = await model.generateContent([
-    { inlineData: { data: base64Data, mimeType } },
-    { text: EXTRACT_PROMPT },
-  ]);
+  let result;
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      result = await model.generateContent([
+        { inlineData: { data: base64Data, mimeType } },
+        { text: EXTRACT_PROMPT },
+      ]);
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      const retryable = err.status === 503 || err.status === 429;
+      if (!retryable || attempt === 2) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+  if (lastErr) throw lastErr;
 
   const text = result.response.text().trim();
   const jsonText = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '');
