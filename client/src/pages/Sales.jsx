@@ -65,11 +65,19 @@ export default function Sales() {
         productId: data.matchedProductId || f.productId,
       }));
       setShowAdd(true);
+      const hints = [];
       if (!data.matchedProductId && data.productName) {
-        setScanHint(`Detected "${data.productName}" — no matching product found, please select one manually.`);
+        hints.push(`Detected "${data.productName}" — no matching product found, please select one manually.`);
       } else if (data.matchedProductId) {
-        setScanHint(`Matched product from screenshot: "${data.productName}". Review before saving.`);
+        hints.push(`Matched product from screenshot: "${data.productName}". Review before saving.`);
       }
+      if (!data.productName && data.netAmount != null) {
+        hints.push('This looks like a settlement/payout screen — no product name shown, please select the product manually.');
+      }
+      if (data.netAmount != null) {
+        hints.push(`Sell price filled from revenue before platform fees (RM${data.itemPrice}). Net after TikTok fees would be RM${data.netAmount}.`);
+      }
+      setScanHint(hints.join(' '));
     } catch (err) {
       setScanError(err.response?.data?.error || 'Could not read that screenshot. Enter the sale manually.');
     } finally {
