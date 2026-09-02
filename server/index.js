@@ -15,6 +15,8 @@ import syncRoutes from './routes/sync.js';
 import { requireAuth } from './middleware/requireAuth.js';
 
 const app = express();
+app.set('trust proxy', 1);
+app.set('etag', false);
 
 app.use(
   cors({
@@ -31,6 +33,11 @@ app.use(
     cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 24 * 60 * 60 * 1000 },
   })
 );
+
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/materials', requireAuth, materialsRoutes);
