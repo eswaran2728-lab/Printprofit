@@ -17,7 +17,7 @@ export async function extractSaleFromImage(base64Data, mimeType) {
     throw new Error('GEMINI_API_KEY is not configured on the server');
   }
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
   const result = await model.generateContent([
     { inlineData: { data: base64Data, mimeType } },
