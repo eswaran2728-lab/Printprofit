@@ -92,7 +92,7 @@ export default function Sales() {
       <Blueprint className="p-3.5">
         <label className="flex cursor-pointer items-center justify-center gap-2 border border-dashed border-divider py-2.5 text-[13px] text-accent-700">
           {scanning ? 'Reading screenshot…' : '📷 Scan order screenshot (auto-fill)'}
-          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onScanFile} disabled={scanning} />
+          <input type="file" accept="image/*" className="hidden" onChange={onScanFile} disabled={scanning} />
         </label>
         {scanError && <p className="mt-2 text-[11px] text-danger-700">{scanError}</p>}
         {scanHint && <p className="mt-2 text-[11px] text-warn-700">{scanHint}</p>}
