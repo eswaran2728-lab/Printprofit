@@ -10,57 +10,89 @@ import { materialCostPerGram, isReorderNeeded, printerCostPerHour, computeProduc
 const router = Router();
 
 export function seedCatalogIfNeeded() {
-  if (store.isCatalogSeeded()) return;
-  if (store.get('materials').length > 0 || store.get('printers').length > 0 || store.get('products').length > 0) {
-    // User already has their own data — don't overwrite it, just stop offering the seed.
-    store.markCatalogSeeded();
+  const seed = buildCatalogSeed();
+
+  const existingMaterials = store.get('materials');
+  const existingPrinters = store.get('printers');
+  const existingProducts = store.get('products');
+
+  const materialNameKey = (m) => `${m.material}|${m.color}`.toLowerCase();
+  const existingMaterialKeys = new Set(existingMaterials.map(materialNameKey));
+  const existingPrinterNames = new Set(existingPrinters.map((p) => p.name.toLowerCase()));
+  const existingProductNames = new Set(existingProducts.map((p) => p.name.toLowerCase()));
+
+  const newMaterials = seed.materials.filter((m) => !existingMaterialKeys.has(materialNameKey(m)));
+  const newPrinters = seed.printers.filter((p) => !existingPrinterNames.has(p.name.toLowerCase()));
+
+  // Products reference material/printer ids from the seed — only keep products whose
+  // referenced material/printer actually ended up in the store (existing or newly added).
+  const materials = [...existingMaterials, ...newMaterials];
+  const printers = [...existingPrinters, ...newPrinters];
+  const materialIds = new Set(materials.map((m) => m.id));
+  const printerIds = new Set(printers.map((p) => p.id));
+
+  const newProducts = seed.products.filter(
+    (p) =>
+      !existingProductNames.has(p.name.toLowerCase()) &&
+      p.materialsUsed.every((m) => materialIds.has(m.materialId)) &&
+      printerIds.has(p.printerId)
+  );
+
+  if (!newMaterials.length && !newPrinters.length && !newProducts.length) {
+    console.log('[seed] catalog already present, nothing to add');
     return;
   }
 
-  const { materials, printers, products } = buildCatalogSeed();
-  store.set('materials', materials);
-  store.set('printers', printers);
-  store.set('products', products);
-  store.markCatalogSeeded();
+  console.log(`[seed] adding ${newMaterials.length} materials, ${newPrinters.length} printers, ${newProducts.length} products`);
 
-  enqueueWrite(
-    'Materials Stock',
-    materials.map((m) => [
-      m.material,
-      m.color,
-      m.costPerKg,
-      Number(materialCostPerGram(m.costPerKg).toFixed(4)),
-      m.stockGrams,
-      m.minStockGrams,
-      isReorderNeeded(m.stockGrams, m.minStockGrams) ? 'YES' : 'NO',
-    ])
-  );
+  if (newMaterials.length) {
+    store.set('materials', materials);
+    enqueueWrite(
+      'Materials Stock',
+      materials.map((m) => [
+        m.material,
+        m.color,
+        m.costPerKg,
+        Number(materialCostPerGram(m.costPerKg).toFixed(4)),
+        m.stockGrams,
+        m.minStockGrams,
+        isReorderNeeded(m.stockGrams, m.minStockGrams) ? 'YES' : 'NO',
+      ])
+    );
+  }
 
-  enqueueWrite(
-    'Printers',
-    printers.map((p) => [p.name, p.purchasePrice, p.powerW, p.lifetimeHours, p.annualMaintenance, Number(printerCostPerHour(p).toFixed(3))])
-  );
+  if (newPrinters.length) {
+    store.set('printers', printers);
+    enqueueWrite(
+      'Printers',
+      printers.map((p) => [p.name, p.purchasePrice, p.powerW, p.lifetimeHours, p.annualMaintenance, Number(printerCostPerHour(p).toFixed(3))])
+    );
+  }
 
-  const refs = { materials, printers, labor: store.get('labor') };
-  enqueueWrite(
-    'Products',
-    products.map((p) => {
-      const cost = computeProductCost(p, refs);
-      const mat = materials.find((m) => m.id === p.materialsUsed[0]?.materialId);
-      const printer = printers.find((x) => x.id === p.printerId);
-      const laborTask = refs.labor.find((l) => l.id === p.laborTasksUsed[0]?.taskId);
-      return [
-        p.name,
-        mat ? `${mat.material} ${mat.color} (${p.materialsUsed[0].grams}g)` : '',
-        p.printTimeHours,
-        printer?.name || '',
-        p.failureRatePct,
-        p.packagingUsed,
-        laborTask ? `${laborTask.task} (${p.laborTasksUsed[0].hours}h)` : '',
-        Number(cost.totalCost.toFixed(2)),
-      ];
-    })
-  );
+  if (newProducts.length) {
+    const products = [...existingProducts, ...newProducts];
+    store.set('products', products);
+    const refs = { materials, printers, labor: store.get('labor') };
+    enqueueWrite(
+      'Products',
+      products.map((p) => {
+        const cost = computeProductCost(p, refs);
+        const mat = materials.find((m) => m.id === p.materialsUsed[0]?.materialId);
+        const printer = printers.find((x) => x.id === p.printerId);
+        const laborTask = refs.labor.find((l) => l.id === p.laborTasksUsed[0]?.taskId);
+        return [
+          p.name,
+          mat ? `${mat.material} ${mat.color} (${p.materialsUsed[0].grams}g)` : '',
+          p.printTimeHours,
+          printer?.name || '',
+          p.failureRatePct,
+          p.packagingUsed,
+          laborTask ? `${laborTask.task} (${p.laborTasksUsed[0].hours}h)` : '',
+          Number(cost.totalCost.toFixed(2)),
+        ];
+      })
+    );
+  }
 }
 
 router.get('/google', (req, res) => {
