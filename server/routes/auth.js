@@ -17,26 +17,44 @@ export function seedCatalogIfNeeded() {
   const existingProducts = store.get('products');
 
   const materialNameKey = (m) => `${m.material}|${m.color}`.toLowerCase();
-  const existingMaterialKeys = new Set(existingMaterials.map(materialNameKey));
-  const existingPrinterNames = new Set(existingPrinters.map((p) => p.name.toLowerCase()));
+  const existingMaterialByKey = new Map(existingMaterials.map((m) => [materialNameKey(m), m]));
+  const existingPrinterByName = new Map(existingPrinters.map((p) => [p.name.toLowerCase(), p]));
   const existingProductNames = new Set(existingProducts.map((p) => p.name.toLowerCase()));
 
-  const newMaterials = seed.materials.filter((m) => !existingMaterialKeys.has(materialNameKey(m)));
-  const newPrinters = seed.printers.filter((p) => !existingPrinterNames.has(p.name.toLowerCase()));
+  const newMaterials = [];
+  const materialIdMap = new Map(); // seed material id -> final id (existing or newly inserted)
+  for (const m of seed.materials) {
+    const existing = existingMaterialByKey.get(materialNameKey(m));
+    if (existing) {
+      materialIdMap.set(m.id, existing.id);
+    } else {
+      materialIdMap.set(m.id, m.id);
+      newMaterials.push(m);
+    }
+  }
 
-  // Products reference material/printer ids from the seed — only keep products whose
-  // referenced material/printer actually ended up in the store (existing or newly added).
+  const newPrinters = [];
+  const printerIdMap = new Map(); // seed printer id -> final id
+  for (const p of seed.printers) {
+    const existing = existingPrinterByName.get(p.name.toLowerCase());
+    if (existing) {
+      printerIdMap.set(p.id, existing.id);
+    } else {
+      printerIdMap.set(p.id, p.id);
+      newPrinters.push(p);
+    }
+  }
+
   const materials = [...existingMaterials, ...newMaterials];
   const printers = [...existingPrinters, ...newPrinters];
-  const materialIds = new Set(materials.map((m) => m.id));
-  const printerIds = new Set(printers.map((p) => p.id));
 
-  const newProducts = seed.products.filter(
-    (p) =>
-      !existingProductNames.has(p.name.toLowerCase()) &&
-      p.materialsUsed.every((m) => materialIds.has(m.materialId)) &&
-      printerIds.has(p.printerId)
-  );
+  const newProducts = seed.products
+    .filter((p) => !existingProductNames.has(p.name.toLowerCase()))
+    .map((p) => ({
+      ...p,
+      materialsUsed: p.materialsUsed.map((m) => ({ ...m, materialId: materialIdMap.get(m.materialId) })),
+      printerId: printerIdMap.get(p.printerId),
+    }));
 
   if (!newMaterials.length && !newPrinters.length && !newProducts.length) {
     console.log('[seed] catalog already present, nothing to add');
