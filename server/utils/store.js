@@ -25,6 +25,7 @@ const DEFAULT_DB = {
   products: [],
   sales: [],
   syncQueue: [],
+  catalogSeeded: false,
 };
 
 function ensureDataDir() {
@@ -71,5 +72,12 @@ export const store = {
   },
   getAuth() {
     return db.auth;
+  },
+  isCatalogSeeded() {
+    return !!db.catalogSeeded;
+  },
+  markCatalogSeeded() {
+    db.catalogSeeded = true;
+    save();
   },
 };

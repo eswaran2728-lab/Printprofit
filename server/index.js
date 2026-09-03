@@ -3,7 +3,8 @@ import session from 'express-session';
 import cors from 'cors';
 import { config } from './config.js';
 
-import authRoutes from './routes/auth.js';
+import authRoutes, { seedCatalogIfNeeded } from './routes/auth.js';
+import { store } from './utils/store.js';
 import materialsRoutes from './routes/materials.js';
 import hardwareRoutes from './routes/hardware.js';
 import printersRoutes from './routes/printers.js';
@@ -65,4 +66,7 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(config.port, () => {
   console.log(`PrintProfit server running on port ${config.port}`);
+  if (store.getAuth().tokens) {
+    seedCatalogIfNeeded();
+  }
 });
